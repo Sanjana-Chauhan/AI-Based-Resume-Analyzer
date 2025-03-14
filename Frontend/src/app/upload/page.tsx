@@ -24,14 +24,14 @@ export default function UploadResume() {
     formData.append("resume", file);
 
     try {
-      const response = await axios.post<{ analysis: string }>(
-        "http://localhost:8000/analyze-resume",
+      const response = await axios.post<{ entities: string }>(
+        "http://localhost:8001/analyze-resume",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-      setResult(response.data.analysis);
+      setResult(response.data.entities);
     } catch (error) {
       console.error("Upload error:", error);
       alert("Error analyzing resume!");
@@ -40,7 +40,7 @@ export default function UploadResume() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+      <div className="bg-zinc-200 p-6 rounded-lg shadow-lg w-96">
         <h2 className="text-xl font-bold mb-4">Upload Resume</h2>
         <input
           type="file"
