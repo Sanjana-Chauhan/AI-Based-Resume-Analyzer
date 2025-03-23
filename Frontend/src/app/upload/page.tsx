@@ -1,61 +1,138 @@
 "use client";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-import { useState } from "react";
-import axios from "axios";
+export default function Upload() {
+  const router = useRouter();
+  const [File, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-export default function UploadResume() {
-  const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<string>("");
+  // Allowed file types and size
+  const allowedTypes = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword", // Support for .doc files
+  ];
+  const MAX_FILE_SIZE_MB = 5;
 
-  // Handle file selection
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0] || null;
-    setFile(selectedFile);
+  // Handle file change and validate format and size
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFile = e.target.files[0];
+
+      // Check file type
+      if (!allowedTypes.includes(selectedFile.type)) {
+        alert("❌ Invalid file type. Please upload a PDF or DOC/DOCX.");
+        return;
+      }
+
+      // Check file size
+      if (selectedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        alert(`❌ File size exceeds ${MAX_FILE_SIZE_MB} MB limit.`);
+        return;
+      }
+
+      setFile(selectedFile);
+    }
   };
 
-  // Handle file upload
-  const handleUpload = async () => {
-    if (!file) {
-      alert("Please select a file!");
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!File) {
+      alert("⚠️ Please upload a valid resume.");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("resume", file);
+    const formdata = new FormData();
+    formdata.append("file", File);
 
     try {
-      const response = await axios.post<{ entities: string }>(
-        "http://localhost:8001/analyze-resume",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
+      setLoading(true);
+
+      const response = await fetch("http://localhost:8002/upload-resume", {
+        method: "POST",
+        body: formdata,
+      });
+
+      if (response.ok) {
+        // Inside handleSubmit function after response.json()
+        const data = await response.json();
+
+        if (data) {
+          // Store feedback safely after checking
+         
+          localStorage.setItem("feedbackData", JSON.stringify(data.feedback));
+          router.push("/result");
+        } else {
+          alert("❌ Invalid data received. Please try again.");
         }
-      );
-      setResult(response.data.entities);
+      }
     } catch (error) {
-      console.error("Upload error:", error);
-      alert("Error analyzing resume!");
+      console.error("❗️ Error uploading resume:", error);
+      alert("⚠️ Error processing the file. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-zinc-200 p-6 rounded-lg shadow-lg w-96">
-        <h2 className="text-xl font-bold mb-4">Upload Resume</h2>
-        <input
-          type="file"
-          accept=".pdf,.doc,.docx"
-          onChange={handleFileChange}
-          className="mb-4 border p-2 w-full"
-        />
-        <button
-          onClick={handleUpload}
-          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-        >
-          Upload
-        </button>
-        {result && <pre className="mt-4 bg-gray-200 p-4">{result}</pre>}
-      </div>
+    <div className="flex flex-col gap-4 p-6 sm:p-12 items-center justify-center min-h-screen ml-64">
+      <Card className="w-full sm:w-110 max-w-[500px] border-2 border-gray-900 min-h-65 max-h-140 shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-3xl">Upload Resume</CardTitle>
+          <CardDescription>
+            Resume should be in PDF, DOC, or DOCX format (Max:{" "}
+            {MAX_FILE_SIZE_MB} MB)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full border-gray-400 border-dashed border-2 p-3 h-40 rounded-lg flex flex-col">
+            <label
+              htmlFor="UploadResume"
+              className="h-full flex flex-col items-center justify-evenly cursor-pointer"
+            >
+              <img src="/outbox.png" alt="upload" className="w-10 h-10" />
+              {!File && (
+                <p className="text-center text-sm text-gray-900/50">
+                  Drop your resume here to get a personalized review
+                </p>
+              )}
+              {File && (
+                <p className="text-center text-sm text-gray-900/50">
+                  📄 {File.name.split("\\").pop()}
+                </p>
+              )}
+            </label>
+            <input
+              type="file"
+              id="UploadResume"
+              accept=".pdf, .doc, .docx"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button
+            className="w-full bg-gray-800 hover:bg-gray-900"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? "⏳ Analyzing..." : "📤 Upload"}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
